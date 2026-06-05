@@ -1,0 +1,20 @@
+=== EchoPhrase GitHub Upload (no gh required) ===
+
+You do NOT need GitHub CLI. Follow these steps:
+
+1) Create empty repo on GitHub:
+   https://github.com/new
+   Name: echophrase
+   Do NOT add README / .gitignore / license
+
+2) Run (replace YOUR_USERNAME):
+
+   cd c:\Users\cindy\Projects\echophrase
+   powershell -ExecutionPolicy Bypass -File scripts\git-upload.ps1 -GithubUsername YOUR_USERNAME
+
+3) When git push asks to sign in, use your GitHub account or Personal Access Token.
+
+Optional: install gh later with:
+   winget install --id GitHub.cli
+
+After success, git-upload-report.txt will contain GITHUB_REPO_URL and COMMIT_SHA.

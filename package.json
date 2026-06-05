@@ -1,0 +1,19 @@
+{
+  "name": "echophrase",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@9.15.9",
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm --filter @echophrase/web dev",
+    "dev:api": "pnpm --filter @echophrase/api dev",
+    "build": "pnpm --filter @echophrase/web build && pnpm --filter @echophrase/api build",
+    "build:web": "pnpm --filter @echophrase/web build",
+    "build:api": "pnpm --filter @echophrase/api build",
+    "check": "pnpm -r check",
+    "package:api": "node scripts/package-api.mjs",
+    "deploy:aws": "powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1",
+    "deploy:api": "powershell -ExecutionPolicy Bypass -File scripts/deploy-api.ps1",
+    "deploy:web": "powershell -ExecutionPolicy Bypass -File scripts/deploy-web.ps1"
+  }
+}

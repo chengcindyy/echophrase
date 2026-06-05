@@ -1,0 +1,180 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: EchoPhrase API — Azure Speech proxy
+
+Parameters:
+  AzureSpeechKey:
+    Type: String
+    NoEcho: true
+    Description: Azure Speech subscription key
+  AzureSpeechRegion:
+    Type: String
+    Default: eastus
+    Description: Azure Speech region (e.g. eastus, westeurope)
+
+Globals:
+  Function:
+    Runtime: nodejs22.x
+    Architectures:
+      - x86_64
+    Timeout: 30
+    MemorySize: 1024
+    Environment:
+      Variables:
+        AZURE_SPEECH_KEY: !Ref AzureSpeechKey
+        AZURE_SPEECH_REGION: !Ref AzureSpeechRegion
+
+Resources:
+  EchoPhraseApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: $default
+      CorsConfiguration:
+        AllowOrigins:
+          - "*"
+        AllowHeaders:
+          - Content-Type
+        AllowMethods:
+          - GET
+          - POST
+          - OPTIONS
+
+  HealthFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../api/dist/
+      Handler: handlers/health.handler
+      Events:
+        Health:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref EchoPhraseApi
+            Path: /api/health
+            Method: get
+
+  TtsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../api/dist/
+      Handler: handlers/tts.handler
+      Events:
+        Tts:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref EchoPhraseApi
+            Path: /api/tts
+            Method: post
+
+  AssessFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../api/dist/
+      Handler: handlers/assess.handler
+      Events:
+        Assess:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref EchoPhraseApi
+            Path: /api/assess
+            Method: post
+
+  WebBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  WebBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref WebBucket
+      PolicyDocument:
+        Statement:
+          - Sid: AllowCloudFrontRead
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub "${WebBucket.Arn}/*"
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${WebDistribution}"
+
+  WebOAC:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub "${AWS::StackName}-oac"
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  WebDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        DefaultRootObject: index.html
+        HttpVersion: http2and3
+        Origins:
+          - Id: WebBucketOrigin
+            DomainName: !GetAtt WebBucket.RegionalDomainName
+            OriginAccessControlId: !GetAtt WebOAC.Id
+            S3OriginConfig:
+              OriginAccessIdentity: ""
+          - Id: ApiOrigin
+            DomainName: !Sub "${EchoPhraseApi}.execute-api.${AWS::Region}.amazonaws.com"
+            CustomOriginConfig:
+              HTTPSPort: 443
+              OriginProtocolPolicy: https-only
+              OriginSSLProtocols:
+                - TLSv1.2
+        DefaultCacheBehavior:
+          TargetOriginId: WebBucketOrigin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD, OPTIONS]
+          CachedMethods: [GET, HEAD]
+          Compress: true
+          ForwardedValues:
+            QueryString: false
+        CacheBehaviors:
+          - PathPattern: /api/*
+            TargetOriginId: ApiOrigin
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
+            CachedMethods: [GET, HEAD]
+            Compress: true
+            ForwardedValues:
+              QueryString: true
+              Headers:
+                - Content-Type
+              Cookies:
+                Forward: none
+            MinTTL: 0
+            DefaultTTL: 0
+            MaxTTL: 0
+        CustomErrorResponses:
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+
+Outputs:
+  ApiEndpoint:
+    Description: API base URL (set VITE_API_BASE_URL to this)
+    Value: !Sub "https://${EchoPhraseApi}.execute-api.${AWS::Region}.amazonaws.com"
+  WebBucketName:
+    Description: S3 bucket for Vue build output
+    Value: !Ref WebBucket
+  CloudFrontUrl:
+    Description: CloudFront distribution URL
+    Value: !Sub "https://${WebDistribution.DomainName}"

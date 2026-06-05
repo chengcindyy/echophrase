@@ -1,0 +1,23 @@
+{
+  "name": "@echophrase/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/devServer.ts",
+    "build": "node esbuild.config.mjs",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.2",
+    "ffmpeg-static": "^5.2.0",
+    "microsoft-cognitiveservices-speech-sdk": "^1.45.0"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.152",
+    "@types/node": "^24.7.0",
+    "esbuild": "^0.25.0",
+    "tsx": "^4.19.1",
+    "typescript": "^5.9.3"
+  }
+}

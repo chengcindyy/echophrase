@@ -1,0 +1,30 @@
+請依照下方 CSV 格式，幫我產生法語詞庫檔案。
+
+【我的需求】（請自行修改這段）
+- 主題：法語基本必練口說句子
+- 數量：50 筆
+- 難度：初學者，句子以實用口語為主
+- translation 請用繁體中文
+
+【輸出格式】
+- 只輸出 CSV，不要 markdown 程式碼區塊、不要其他說明
+- UTF-8，第一列必須是表頭
+- 欄位：text,translation,tags
+- text：法文原文（保留大小寫與，省略標點）
+- translation：繁體中文釋義
+- tags：標籤名稱，多個用 | 分隔，例如 餐廳|A1|標註當天日期
+- 若某欄含逗號，請用雙引號包住該欄
+- 不要重複的 text
+- 單字與句子都可以，句子不必另填 type 欄
+
+【格式範例】
+text,translation,tags
+bonjour,你好,問候|A1|20260604
+merci,謝謝,問候
+Comment allez-vous ?,您好嗎？（正式）,問候
+
+【進階欄位（選填，需要時才加）】
+text,type,translation,ipa,notes,tags
+bonjour,word,你好,/bɔ̃.ʒuʁ/,注意鼻元音,問候|A1|20260604
+
+請開始產生。
