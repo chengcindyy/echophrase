@@ -24,7 +24,7 @@ const emit = defineEmits<{
   scored: [score: number];
 }>();
 
-const phase = ref<"ready" | "recording" | "assessing" | "result">("ready");
+const phase = ref<"ready" | "preparing" | "recording" | "assessing" | "result">("ready");
 const listenPlayed = ref(false);
 const actionError = ref<string | null>(null);
 const recordingUrl = ref<string | null>(null);
@@ -34,7 +34,14 @@ const wordTtsLoading = ref<string | null>(null);
 
 const settingsStore = useSettingsStore();
 
-const { recording, error: recorderError, start: startRecording, stop: stopRecording } = useRecorder();
+const {
+  recording,
+  preparing: recorderPreparing,
+  stopping: recorderStopping,
+  error: recorderError,
+  start: startRecording,
+  stop: stopRecording,
+} = useRecorder();
 const { loading: ttsLoading, error: ttsError, needsRetap: ttsNeedsRetap, speak, warm } = useTTS();
 const { loading: assessLoading, error: assessError, result, assess, reset } = useAssess();
 
@@ -45,8 +52,31 @@ const tags = computed(() =>
 );
 
 const busy = computed(
-  () => ttsLoading.value || recording.value || assessLoading.value || phase.value === "assessing",
+  () =>
+    ttsLoading.value ||
+    recording.value ||
+    recorderPreparing.value ||
+    recorderStopping.value ||
+    assessLoading.value ||
+    phase.value === "assessing" ||
+    phase.value === "preparing",
 );
+
+const recordButtonDisabled = computed(
+  () =>
+    phase.value === "preparing" ||
+    recorderPreparing.value ||
+    phase.value === "assessing" ||
+    assessLoading.value ||
+    recorderStopping.value,
+);
+
+const recordButtonLabel = computed(() => {
+  if (phase.value === "preparing" || recorderPreparing.value) return "準備中";
+  if (recorderStopping.value) return "停止中";
+  if (phase.value === "recording") return "停止";
+  return "開始念";
+});
 
 function clearRecordingUrl() {
   if (recordingUrl.value) {
@@ -138,10 +168,14 @@ async function maybeAutoPlay() {
 async function handleRecordToggle() {
   actionError.value = null;
 
-  if (recording.value) {
-    phase.value = "assessing";
+  if (recordButtonDisabled.value) {
+    return;
+  }
+
+  if (phase.value === "recording") {
     try {
       const { blob, contentType } = await stopRecording();
+      phase.value = "assessing";
       clearRecordingUrl();
       recordingUrl.value = URL.createObjectURL(blob);
       const [score, recMs] = await Promise.all([
@@ -164,9 +198,10 @@ async function handleRecordToggle() {
   }
 
   reset();
+  phase.value = "preparing";
   try {
-    phase.value = "recording";
     await startRecording();
+    phase.value = "recording";
   } catch (e) {
     phase.value = "ready";
     actionError.value = e instanceof Error ? e.message : "無法開始錄音";
@@ -232,23 +267,33 @@ function handleRetry() {
     <div v-if="phase !== 'result'" class="flex flex-col items-center gap-3 py-4">
       <p class="text-sm text-slate-400">
         {{
-          phase === "recording"
-            ? "正在錄音… 再按一次停止"
-            : phase === "assessing"
-              ? "AI 評分中…"
-              : mode === "listen-first" && !listenPlayed
-                ? "準備播放參考發音…"
-                : "準備好了就按下方按鈕開始念"
+          phase === "preparing" || recorderPreparing
+            ? "麥克風準備中… 請稍候"
+            : recorderStopping
+              ? "正在停止錄音…"
+              : phase === "recording"
+                ? "正在錄音… 念完按停止"
+                : phase === "assessing"
+                ? "AI 評分中…"
+                : mode === "listen-first" && !listenPlayed
+                  ? "準備播放參考發音…"
+                  : "準備好了就按下方按鈕開始念"
         }}
       </p>
       <button
         type="button"
         class="flex h-20 w-20 items-center justify-center rounded-full text-sm font-semibold text-white transition-transform active:scale-95 disabled:opacity-50"
-        :class="recording ? 'bg-rose-600 hover:bg-rose-500' : 'bg-indigo-600 hover:bg-indigo-500'"
-        :disabled="busy && !recording"
+        :class="
+          phase === 'preparing' || recorderPreparing
+            ? 'bg-slate-600'
+            : phase === 'recording' || recorderStopping
+              ? 'bg-rose-600 hover:bg-rose-500'
+              : 'bg-indigo-600 hover:bg-indigo-500'
+        "
+        :disabled="recordButtonDisabled"
         @click="handleRecordToggle"
       >
-        {{ recording ? "停止" : "開始念" }}
+        {{ recordButtonLabel }}
       </button>
     </div>
 

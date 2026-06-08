@@ -51,6 +51,20 @@ export function installGlobalAudioUnlock(): void {
   // Disabled.
 }
 
+/** Pause shared playback so iOS can switch the audio session to the microphone. */
+export function releaseAudioPlaybackForRecording(): void {
+  if ("speechSynthesis" in window) {
+    window.speechSynthesis.cancel();
+  }
+  const audio =
+    sharedAudio ?? (document.getElementById("echophrase-audio") as HTMLAudioElement | null);
+  if (!audio) return;
+  audio.pause();
+  audio.currentTime = 0;
+  audio.removeAttribute("src");
+  audio.load();
+}
+
 /** Play a ready blob/object URL. No network I/O — safe for iOS after prefetch. */
 export function playCachedUrl(url: string): Promise<void> {
   const audio = getSharedAudio();
