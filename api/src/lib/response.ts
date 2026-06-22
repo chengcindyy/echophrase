@@ -2,8 +2,8 @@ import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from "aws-lambda
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "Content-Type",
-  "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "Access-Control-Allow-Methods": "GET,POST,PATCH,DELETE,OPTIONS",
 };
 
 export function jsonResponse(statusCode: number, body: unknown): APIGatewayProxyResultV2 {
@@ -23,7 +23,10 @@ export function errorResponse(statusCode: number, message: string): APIGatewayPr
 
 export function parseJsonBody<T>(event: APIGatewayProxyEventV2): T {
   if (!event.body) throw new Error("Missing request body");
-  return JSON.parse(event.body) as T;
+  const raw = event.isBase64Encoded
+    ? Buffer.from(event.body, "base64").toString("utf8")
+    : event.body;
+  return JSON.parse(raw) as T;
 }
 
 export function handleOptions(): APIGatewayProxyResultV2 {

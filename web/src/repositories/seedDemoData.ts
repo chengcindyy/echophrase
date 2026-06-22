@@ -1,6 +1,5 @@
 import type { Tag } from "@/types";
-import { tagRepository } from "./local/localTagStore";
-import { vocabRepository } from "./local/localVocabStore";
+import { tagRepository, vocabRepository } from "./index";
 
 const SEED_KEY = "echophrase:seed:v1";
 

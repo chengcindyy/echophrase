@@ -1,7 +1,7 @@
 import * as esbuild from "esbuild";
 import { mkdir, writeFile } from "node:fs/promises";
 
-const handlers = ["health", "tts", "assess"];
+const handlers = ["health", "tts", "assess", "data"];
 
 await mkdir(new URL("./dist/handlers/", import.meta.url), { recursive: true });
 
@@ -26,7 +26,9 @@ await writeFile(
     {
       type: "module",
       dependencies: {
+        "@neondatabase/serverless": "^1.0.2",
         "ffmpeg-static": "^5.2.0",
+        "google-auth-library": "^10.5.0",
         "microsoft-cognitiveservices-speech-sdk": "^1.45.0",
       },
     },

@@ -1,14 +1,17 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 import { apiEndpoint, healthCheck } from "@/api/client";
+import { mountGoogleSignInButton } from "@/lib/googleAuth";
 import { isIOS, playCachedUrl } from "@/lib/audioPlayback";
 import { getTtsCache, isTtsCached, prefetchTts } from "@/lib/ttsCache";
+import { useAuthStore } from "@/stores/authStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { TTS_VOICES } from "@/types";
 
 const TEST_TEXT = "bonjour";
 
 const settingsStore = useSettingsStore();
+const authStore = useAuthStore();
 const isDev = import.meta.env.DEV;
 const buildId = __APP_BUILD_ID__;
 const apiStatus = ref<"idle" | "checking" | "ok" | "error">("idle");
@@ -17,6 +20,8 @@ const audioStatus = ref<"idle" | "checking" | "ok" | "error">("idle");
 const audioMessage = ref("");
 const ttsReady = ref(false);
 const needsRetap = ref(false);
+const googleButtonHost = ref<HTMLElement | null>(null);
+const googleAuthError = ref<string | null>(null);
 
 function ttsParams() {
   return {
@@ -34,6 +39,12 @@ onMounted(() => {
     .catch(() => {
       ttsReady.value = false;
     });
+
+  if (googleButtonHost.value && !authStore.isAuthenticated) {
+    void mountGoogleSignInButton(googleButtonHost.value).catch((error) => {
+      googleAuthError.value = error instanceof Error ? error.message : "Google 登入載入失敗";
+    });
+  }
 });
 
 async function testAudio() {
@@ -85,6 +96,42 @@ async function testApi() {
 
 <template>
   <div class="space-y-6">
+    <section class="space-y-3 rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
+      <h2 class="text-sm font-medium text-slate-300">Google 帳號同步</h2>
+      <p class="text-xs text-slate-500">
+        登入後，詞庫與標籤會存到雲端，手機與電腦可共享同一份資料。
+      </p>
+
+      <div v-if="authStore.syncing" class="text-sm text-amber-300">同步中…</div>
+
+      <div v-else-if="authStore.isAuthenticated" class="space-y-3">
+        <div class="flex items-center gap-3">
+          <img
+            v-if="authStore.user?.picture"
+            :src="authStore.user.picture"
+            alt=""
+            class="h-10 w-10 rounded-full"
+          />
+          <div>
+            <p class="text-sm text-white">{{ authStore.user?.name ?? "已登入" }}</p>
+            <p class="text-xs text-slate-500">{{ authStore.user?.email }}</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          class="w-full rounded-xl border border-slate-700 py-2 text-sm text-slate-300 hover:border-rose-500 hover:text-rose-300"
+          @click="authStore.signOut()"
+        >
+          登出
+        </button>
+      </div>
+
+      <div v-else ref="googleButtonHost" class="flex justify-center py-1" />
+
+      <p v-if="googleAuthError" class="text-sm text-rose-400">{{ googleAuthError }}</p>
+      <p v-if="authStore.syncError" class="text-sm text-rose-400">{{ authStore.syncError }}</p>
+    </section>
+
     <section class="space-y-3 rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
       <h2 class="text-sm font-medium text-slate-300">TTS 語音</h2>
       <select

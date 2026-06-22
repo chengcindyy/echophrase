@@ -1,29 +1,19 @@
 import type { Tag } from "@/types";
 import type { TagRepository } from "../types";
-
-const STORAGE_KEY = "echophrase:tags:v1";
-
-function load(): Tag[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as Tag[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function save(tags: Tag[]): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(tags));
-}
+import { bumpRepositoryRevision } from "../repositoryRevision";
+import { loadLocalTags, saveLocalTags } from "./localStorageData";
 
 function newId(): string {
   return crypto.randomUUID();
 }
 
 export function createLocalTagRepository(): TagRepository {
-  let tags = load();
+  let tags = loadLocalTags();
+
+  function persist() {
+    saveLocalTags(tags);
+    bumpRepositoryRevision();
+  }
 
   return {
     list() {
@@ -43,7 +33,7 @@ export function createLocalTagRepository(): TagRepository {
         sortOrder: maxOrder + 1,
       };
       tags = [...tags, tag];
-      save(tags);
+      persist();
       return tag;
     },
 
@@ -53,15 +43,15 @@ export function createLocalTagRepository(): TagRepository {
       const updated = { ...tags[index], ...patch };
       if (patch.name !== undefined) updated.name = patch.name.trim();
       tags = tags.map((t) => (t.id === id ? updated : t));
-      save(tags);
+      persist();
       return updated;
     },
 
     remove(id) {
       tags = tags.filter((t) => t.id !== id);
-      save(tags);
+      persist();
     },
   };
 }
 
-export const tagRepository = createLocalTagRepository();
+export const localTagRepository = createLocalTagRepository();

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
-import { tagRepository } from "@/repositories";
+import { tagRepository, repositoryRevision } from "@/repositories";
+import { cloudTagsRef } from "@/repositories/cloudCache";
+import { useAuthStore } from "@/stores/authStore";
 import { fetchTts } from "@/api/client";
 import { getBase64AudioDurationMs, getBlobDurationMs } from "@/lib/audioDuration";
 import { useAssess } from "@/composables/useAssess";
@@ -33,6 +35,7 @@ const referenceDurationMs = ref<number | undefined>();
 const wordTtsLoading = ref<string | null>(null);
 
 const settingsStore = useSettingsStore();
+const authStore = useAuthStore();
 
 const {
   recording,
@@ -45,11 +48,17 @@ const {
 const { loading: ttsLoading, error: ttsError, needsRetap: ttsNeedsRetap, speak, warm } = useTTS();
 const { loading: assessLoading, error: assessError, result, assess, reset } = useAssess();
 
-const tags = computed(() =>
-  props.item.tagIds
+const tags = computed(() => {
+  if (authStore.isAuthenticated) {
+    return props.item.tagIds
+      .map((id) => cloudTagsRef.value.find((tag) => tag.id === id))
+      .filter((t): t is NonNullable<typeof t> => Boolean(t));
+  }
+  repositoryRevision.value;
+  return props.item.tagIds
     .map((id) => tagRepository.get(id))
-    .filter((t): t is NonNullable<typeof t> => Boolean(t)),
-);
+    .filter((t): t is NonNullable<typeof t> => Boolean(t));
+});
 
 const busy = computed(
   () =>

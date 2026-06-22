@@ -26,6 +26,13 @@ if (-not $azureKey) {
     Write-Error "AZURE_SPEECH_KEY missing. Set it in .env or environment."
 }
 
+$databaseUrl = $env:DATABASE_URL
+if (-not $databaseUrl) { $databaseUrl = Read-DotEnvValue "DATABASE_URL" }
+$googleClientId = $env:GOOGLE_CLIENT_ID
+if (-not $googleClientId) { $googleClientId = Read-DotEnvValue "GOOGLE_CLIENT_ID" }
+if (-not $databaseUrl) { Write-Error "DATABASE_URL missing. Set it in .env or environment." }
+if (-not $googleClientId) { Write-Error "GOOGLE_CLIENT_ID missing. Set it in .env or environment." }
+
 Write-Host "==> Building API handlers…" -ForegroundColor Cyan
 pnpm build:api
 node scripts/package-api.mjs
@@ -38,7 +45,7 @@ sam deploy `
     --resolve-s3 `
     --capabilities CAPABILITY_IAM `
     --region us-west-2 `
-    --parameter-overrides "AzureSpeechKey=$azureKey AzureSpeechRegion=$azureRegion" `
+    --parameter-overrides "AzureSpeechKey=$azureKey AzureSpeechRegion=$azureRegion DatabaseUrl=$databaseUrl GoogleClientId=$googleClientId" `
     --no-confirm-changeset `
     --no-fail-on-empty-changeset
 

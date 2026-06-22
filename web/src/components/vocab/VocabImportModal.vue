@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { vocabRepository } from "@/repositories";
-import { buildImportPlan, parsedRowsToInputs, type ImportPlan } from "@/lib/vocabCsv";
+import { importParsedVocabRowsAsync, reloadCloudData } from "@/repositories/cloudPersist";
+import { useAuthStore } from "@/stores/authStore";
+import { buildImportPlan, type ImportPlan } from "@/lib/vocabCsv";
+
+const authStore = useAuthStore();
 
 const emit = defineEmits<{
   close: [];
@@ -13,6 +17,7 @@ const fileName = ref("");
 const parseError = ref<string | null>(null);
 const plan = ref<ImportPlan | null>(null);
 const importing = ref(false);
+const importSuccess = ref<string | null>(null);
 
 const previewRows = computed(() => plan.value?.rows.slice(0, 30) ?? []);
 const hiddenRowCount = computed(() =>
@@ -22,6 +27,7 @@ const hiddenRowCount = computed(() =>
 function reset() {
   fileName.value = "";
   parseError.value = null;
+  importSuccess.value = null;
   plan.value = null;
   if (fileInput.value) fileInput.value.value = "";
 }
@@ -39,6 +45,9 @@ async function onFileChange(event: Event) {
   fileName.value = file.name;
 
   try {
+    if (authStore.isAuthenticated) {
+      await reloadCloudData();
+    }
     const text = await file.text();
     const nextPlan = buildImportPlan(text, vocabRepository.list());
     if (nextPlan.rows.length === 0) {
@@ -77,14 +86,21 @@ function statusClass(status: ImportPlan["rows"][number]["status"]): string {
   }
 }
 
-function confirmImport() {
+async function confirmImport() {
   if (!plan.value || plan.value.newCount === 0 || importing.value) return;
   importing.value = true;
+  parseError.value = null;
+  importSuccess.value = null;
   try {
-    const inputs = parsedRowsToInputs(plan.value.toCreateRows);
-    vocabRepository.createMany(inputs);
-    emit("imported", plan.value.newCount);
-    emit("close");
+    if (authStore.isAuthenticated) {
+      await reloadCloudData();
+    }
+    const added = await importParsedVocabRowsAsync(plan.value.toCreateRows);
+    importSuccess.value = `已成功匯入 ${added} 筆`;
+    emit("imported", added);
+    window.setTimeout(() => emit("close"), 600);
+  } catch (e) {
+    parseError.value = e instanceof Error ? e.message : "匯入失敗，請稍後再試";
   } finally {
     importing.value = false;
   }
@@ -136,7 +152,13 @@ function close() {
         {{ fileName ? `已選擇：${fileName}` : "選擇 CSV 檔案" }}
       </button>
 
-      <p v-if="parseError" class="mt-3 text-sm text-rose-400">{{ parseError }}</p>
+      <p v-if="importSuccess" class="mt-3 rounded-xl bg-emerald-500/10 px-3 py-2 text-sm text-emerald-400">
+        {{ importSuccess }}
+      </p>
+
+      <p v-if="parseError" class="mt-3 rounded-xl bg-rose-500/10 px-3 py-2 text-sm text-rose-400">
+        {{ parseError }}
+      </p>
 
       <div v-if="plan" class="mt-4 space-y-3">
         <div class="grid grid-cols-3 gap-2 text-center text-xs">

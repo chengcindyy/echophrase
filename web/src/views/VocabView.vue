@@ -2,19 +2,41 @@
 
 import { computed, reactive, ref } from "vue";
 
-import { tagRepository, vocabRepository } from "@/repositories";
+import { tagRepository, vocabRepository, repositoryRevision } from "@/repositories";
+
+import { cloudTagsRef, cloudVocabRef } from "@/repositories/cloudCache";
+
+import { createVocabAsync, updateVocabAsync } from "@/repositories/cloudPersist";
 
 import VocabImportModal from "@/components/vocab/VocabImportModal.vue";
 
 import { downloadCsv, exportVocabCsv } from "@/lib/vocabCsv";
 
+import { useAuthStore } from "@/stores/authStore";
+
 import type { VocabInput, VocabItem, VocabType } from "@/types";
 
 
 
-const items = computed(() => vocabRepository.list());
+const authStore = useAuthStore();
 
-const tags = computed(() => tagRepository.list());
+const items = computed(() => {
+  if (authStore.isAuthenticated) {
+    return [...cloudVocabRef.value].sort((a, b) => b.updatedAt - a.updatedAt);
+  }
+  repositoryRevision.value;
+  return vocabRepository.list();
+});
+
+const tags = computed(() => {
+  if (authStore.isAuthenticated) {
+    return [...cloudTagsRef.value].sort(
+      (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name),
+    );
+  }
+  repositoryRevision.value;
+  return tagRepository.list();
+});
 
 const search = ref("");
 
@@ -23,6 +45,7 @@ const showForm = ref(false);
 const showImport = ref(false);
 
 const importMessage = ref<string | null>(null);
+const saveError = ref<string | null>(null);
 
 const editingId = ref<string | null>(null);
 
@@ -136,9 +159,11 @@ function toggleTag(tagId: string) {
 
 
 
-function save() {
+async function save() {
 
   if (!form.text.trim()) return;
+
+  saveError.value = null;
 
   const payload: VocabInput = {
 
@@ -156,19 +181,27 @@ function save() {
 
   };
 
-  if (editingId.value) {
+  try {
 
-    vocabRepository.update(editingId.value, payload);
+    if (editingId.value) {
 
-  } else {
+      await updateVocabAsync(editingId.value, payload);
 
-    vocabRepository.create(payload);
+    } else {
+
+      await createVocabAsync(payload);
+
+    }
+
+    showForm.value = false;
+
+    resetForm();
+
+  } catch (e) {
+
+    saveError.value = e instanceof Error ? e.message : "儲存失敗，請稍後再試";
 
   }
-
-  showForm.value = false;
-
-  resetForm();
 
 }
 
@@ -315,6 +348,12 @@ function typeLabel(type: VocabType): string {
     <p v-if="importMessage" class="rounded-xl bg-emerald-500/10 px-3 py-2 text-sm text-emerald-400">
 
       {{ importMessage }}
+
+    </p>
+
+    <p v-if="saveError" class="rounded-xl bg-rose-500/10 px-3 py-2 text-sm text-rose-400">
+
+      {{ saveError }}
 
     </p>
 

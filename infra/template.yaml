@@ -11,6 +11,13 @@ Parameters:
     Type: String
     Default: eastus
     Description: Azure Speech region (e.g. eastus, westeurope)
+  DatabaseUrl:
+    Type: String
+    NoEcho: true
+    Description: Neon Postgres connection string
+  GoogleClientId:
+    Type: String
+    Description: Google OAuth client ID for ID token verification
 
 Globals:
   Function:
@@ -23,6 +30,8 @@ Globals:
       Variables:
         AZURE_SPEECH_KEY: !Ref AzureSpeechKey
         AZURE_SPEECH_REGION: !Ref AzureSpeechRegion
+        DATABASE_URL: !Ref DatabaseUrl
+        GOOGLE_CLIENT_ID: !Ref GoogleClientId
 
 Resources:
   EchoPhraseApi:
@@ -34,9 +43,12 @@ Resources:
           - "*"
         AllowHeaders:
           - Content-Type
+          - Authorization
         AllowMethods:
           - GET
           - POST
+          - PATCH
+          - DELETE
           - OPTIONS
 
   HealthFunction:
@@ -76,6 +88,85 @@ Resources:
           Properties:
             ApiId: !Ref EchoPhraseApi
             Path: /api/assess
+            Method: post
+
+  DataFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../api/dist/
+      Handler: handlers/data.handler
+      Events:
+        SyncGet:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref EchoPhraseApi
+            Path: /api/sync
+            Method: get
+        SyncMerge:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref EchoPhraseApi
+            Path: /api/sync/merge
+            Method: post
+        TagsList:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref EchoPhraseApi
+            Path: /api/tags
+            Method: get
+        TagsCreate:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref EchoPhraseApi
+            Path: /api/tags
+            Method: post
+        TagUpdate:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref EchoPhraseApi
+            Path: /api/tags/{id}
+            Method: patch
+        TagDelete:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref EchoPhraseApi
+            Path: /api/tags/{id}
+            Method: delete
+        VocabList:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref EchoPhraseApi
+            Path: /api/vocab
+            Method: get
+        VocabCreate:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref EchoPhraseApi
+            Path: /api/vocab
+            Method: post
+        VocabBatch:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref EchoPhraseApi
+            Path: /api/vocab/batch
+            Method: post
+        VocabUpdate:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref EchoPhraseApi
+            Path: /api/vocab/{id}
+            Method: patch
+        VocabDelete:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref EchoPhraseApi
+            Path: /api/vocab/{id}
+            Method: delete
+        VocabPractice:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref EchoPhraseApi
+            Path: /api/vocab/{id}/practice
             Method: post
 
   WebBucket:
@@ -155,6 +246,7 @@ Resources:
               QueryString: true
               Headers:
                 - Content-Type
+                - Authorization
               Cookies:
                 Forward: none
             MinTTL: 0

@@ -1,9 +1,21 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { tagRepository, vocabRepository } from "@/repositories";
+import { tagRepository, vocabRepository, repositoryRevision } from "@/repositories";
+import { cloudTagsRef } from "@/repositories/cloudCache";
+import { useAuthStore } from "@/stores/authStore";
 import { TAG_COLORS } from "@/types";
 
-const tags = computed(() => tagRepository.list());
+const authStore = useAuthStore();
+
+const tags = computed(() => {
+  if (authStore.isAuthenticated) {
+    return [...cloudTagsRef.value].sort(
+      (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name),
+    );
+  }
+  repositoryRevision.value;
+  return tagRepository.list();
+});
 const newName = ref("");
 const editingId = ref<string | null>(null);
 const editName = ref("");

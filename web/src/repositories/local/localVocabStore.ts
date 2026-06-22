@@ -1,29 +1,19 @@
 import type { VocabInput, VocabItem } from "@/types";
 import type { VocabRepository } from "../types";
-
-const STORAGE_KEY = "echophrase:vocab:v1";
-
-function load(): VocabItem[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as VocabItem[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function save(items: VocabItem[]): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-}
+import { bumpRepositoryRevision } from "../repositoryRevision";
+import { loadLocalVocab, saveLocalVocab } from "./localStorageData";
 
 function newId(): string {
   return crypto.randomUUID();
 }
 
 export function createLocalVocabRepository(): VocabRepository {
-  let items = load();
+  let items = loadLocalVocab();
+
+  function persist() {
+    saveLocalVocab(items);
+    bumpRepositoryRevision();
+  }
 
   return {
     list() {
@@ -34,7 +24,7 @@ export function createLocalVocabRepository(): VocabRepository {
       return items.find((v) => v.id === id);
     },
 
-    create(input: VocabInput) {
+    create(input) {
       const now = Date.now();
       const item: VocabItem = {
         id: newId(),
@@ -48,11 +38,11 @@ export function createLocalVocabRepository(): VocabRepository {
         updatedAt: now,
       };
       items = [item, ...items];
-      save(items);
+      persist();
       return item;
     },
 
-    createMany(inputs: VocabInput[]) {
+    createMany(inputs) {
       if (inputs.length === 0) return [];
       const now = Date.now();
       const created = inputs.map((input) => ({
@@ -67,7 +57,7 @@ export function createLocalVocabRepository(): VocabRepository {
         updatedAt: now,
       }));
       items = [...created, ...items];
-      save(items);
+      persist();
       return created;
     },
 
@@ -89,13 +79,13 @@ export function createLocalVocabRepository(): VocabRepository {
         updatedAt: Date.now(),
       };
       items = items.map((v) => (v.id === id ? updated : v));
-      save(items);
+      persist();
       return updated;
     },
 
     remove(id) {
       items = items.filter((v) => v.id !== id);
-      save(items);
+      persist();
     },
 
     recordPractice(id, score) {
@@ -110,7 +100,7 @@ export function createLocalVocabRepository(): VocabRepository {
         updatedAt: Date.now(),
       };
       items = items.map((v) => (v.id === id ? updated : v));
-      save(items);
+      persist();
       return updated;
     },
 
@@ -130,4 +120,4 @@ export function createLocalVocabRepository(): VocabRepository {
   };
 }
 
-export const vocabRepository = createLocalVocabRepository();
+export const localVocabRepository = createLocalVocabRepository();

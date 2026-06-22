@@ -11,6 +11,7 @@
     "build:web": "pnpm --filter @echophrase/web build",
     "build:api": "pnpm --filter @echophrase/api build",
     "check": "pnpm -r check",
+    "db:migrate": "pnpm --filter @echophrase/api db:migrate",
     "package:api": "node scripts/package-api.mjs",
     "deploy:aws": "powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1",
     "deploy:api": "powershell -ExecutionPolicy Bypass -File scripts/deploy-api.ps1",

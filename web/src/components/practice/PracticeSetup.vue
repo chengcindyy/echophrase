@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { tagRepository } from "@/repositories";
+import { tagRepository, repositoryRevision } from "@/repositories";
+import { cloudTagsRef } from "@/repositories/cloudCache";
+import { useAuthStore } from "@/stores/authStore";
 import type { PracticeFilter, PracticeMode } from "@/types";
+
+const authStore = useAuthStore();
 
 const emit = defineEmits<{
   start: [
@@ -17,7 +21,15 @@ const filter = ref<PracticeFilter>("all");
 const mode = ref<PracticeMode>("direct");
 const selectedTagIds = ref<string[]>([]);
 
-const tags = computed(() => tagRepository.list());
+const tags = computed(() => {
+  if (authStore.isAuthenticated) {
+    return [...cloudTagsRef.value].sort(
+      (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name),
+    );
+  }
+  repositoryRevision.value;
+  return tagRepository.list();
+});
 
 function toggleTag(id: string) {
   if (selectedTagIds.value.includes(id)) {
