@@ -20,6 +20,8 @@ const newName = ref("");
 const editingId = ref<string | null>(null);
 const editName = ref("");
 const editColor = ref(TAG_COLORS[0]);
+const dragTagId = ref<string | null>(null);
+const dropTargetId = ref<string | null>(null);
 
 function countForTag(tagId: string): number {
   return vocabRepository.list().filter((v) => v.tagIds.includes(tagId)).length;
@@ -67,6 +69,50 @@ function removeTag(id: string) {
     }
   }
 }
+
+function clearDragState() {
+  dragTagId.value = null;
+  dropTargetId.value = null;
+}
+
+function onDragStart(id: string, event: DragEvent) {
+  if (editingId.value) {
+    event.preventDefault();
+    return;
+  }
+  dragTagId.value = id;
+  event.dataTransfer?.setData("text/plain", id);
+  if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+}
+
+function onDragOver(id: string, event: DragEvent) {
+  if (!dragTagId.value || dragTagId.value === id) return;
+  event.preventDefault();
+  if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+  dropTargetId.value = id;
+}
+
+function onDrop(id: string, event: DragEvent) {
+  event.preventDefault();
+  const sourceId = dragTagId.value;
+  if (!sourceId || sourceId === id) {
+    clearDragState();
+    return;
+  }
+
+  const orderedIds = tags.value.map((tag) => tag.id);
+  const from = orderedIds.indexOf(sourceId);
+  const to = orderedIds.indexOf(id);
+  if (from < 0 || to < 0) {
+    clearDragState();
+    return;
+  }
+
+  orderedIds.splice(from, 1);
+  orderedIds.splice(to, 0, sourceId);
+  tagRepository.reorder(orderedIds);
+  clearDragState();
+}
 </script>
 
 <template>
@@ -86,11 +132,24 @@ function removeTag(id: string) {
       </button>
     </form>
 
+    <p v-if="tags.length" class="text-xs text-slate-500">
+      拖曳左側把手調整標籤順序，詞庫與練習頁會依此順序顯示。
+    </p>
+
     <ul v-if="tags.length" class="space-y-2">
       <li
         v-for="tag in tags"
         :key="tag.id"
-        class="rounded-xl border border-slate-800 bg-slate-900/40 p-4"
+        class="rounded-xl border bg-slate-900/40 p-4 transition-colors"
+        :class="
+          dropTargetId === tag.id && dragTagId !== tag.id
+            ? 'border-indigo-500 bg-indigo-950/30'
+            : 'border-slate-800'
+        "
+        :style="{ opacity: dragTagId === tag.id ? 0.45 : 1 }"
+        @dragover="onDragOver(tag.id, $event)"
+        @dragleave="dropTargetId = dropTargetId === tag.id ? null : dropTargetId"
+        @drop="onDrop(tag.id, $event)"
       >
         <div v-if="editingId === tag.id" class="space-y-2">
           <input
@@ -128,6 +187,16 @@ function removeTag(id: string) {
 
         <div v-else class="flex items-center justify-between gap-2">
           <div class="flex items-center gap-3">
+            <button
+              type="button"
+              class="flex shrink-0 cursor-grab touch-none flex-col items-center justify-center rounded px-1 py-2 text-slate-500 hover:bg-slate-800 hover:text-slate-300 active:cursor-grabbing"
+              draggable="true"
+              aria-label="拖曳排序"
+              @dragstart="onDragStart(tag.id, $event)"
+              @dragend="clearDragState"
+            >
+              <span class="text-base leading-none select-none" aria-hidden="true">⋮⋮</span>
+            </button>
             <span class="h-4 w-4 shrink-0 rounded-full" :style="{ backgroundColor: tag.color }" />
             <div>
               <p class="font-medium text-white">{{ tag.name }}</p>

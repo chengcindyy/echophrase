@@ -4,6 +4,8 @@
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
+. (Join-Path $PSScriptRoot "resolve-tools.ps1")
+Initialize-DeployTools -RequireSam
 
 function Read-DotEnvValue([string]$Name) {
     $envFile = Join-Path $Root ".env"

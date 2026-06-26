@@ -47,6 +47,18 @@ export function createLocalTagRepository(): TagRepository {
       return updated;
     },
 
+    reorder(orderedIds) {
+      if (orderedIds.length !== tags.length) {
+        throw new Error("Tag reorder list length mismatch");
+      }
+      const orderMap = new Map(orderedIds.map((id, index) => [id, index]));
+      if (orderMap.size !== tags.length || tags.some((t) => !orderMap.has(t.id))) {
+        throw new Error("Tag reorder list mismatch");
+      }
+      tags = tags.map((t) => ({ ...t, sortOrder: orderMap.get(t.id)! }));
+      persist();
+    },
+
     remove(id) {
       tags = tags.filter((t) => t.id !== id);
       persist();

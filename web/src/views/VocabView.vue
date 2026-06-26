@@ -83,7 +83,9 @@ const filtered = computed(() => {
 
       v.translation?.toLowerCase().includes(q) ||
 
-      v.notes?.toLowerCase().includes(q),
+      v.notes?.toLowerCase().includes(q) ||
+
+      v.tagIds.some((id) => tagName(id).toLowerCase().includes(q)),
 
   );
 
@@ -249,7 +251,7 @@ function onImported(count: number) {
 
 function tagName(tagId: string): string {
 
-  return tagRepository.get(tagId)?.name ?? tagId;
+  return tags.value.find((t) => t.id === tagId)?.name ?? tagId;
 
 }
 
@@ -257,7 +259,7 @@ function tagName(tagId: string): string {
 
 function tagColor(tagId: string): string {
 
-  return tagRepository.get(tagId)?.color ?? "#6366f1";
+  return tags.value.find((t) => t.id === tagId)?.color ?? "#6366f1";
 
 }
 
@@ -285,7 +287,7 @@ function typeLabel(type: VocabType): string {
 
         type="search"
 
-        placeholder="搜尋詞庫…"
+        placeholder="搜尋詞庫、標籤…"
 
         class="flex-1 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none"
 

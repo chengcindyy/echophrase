@@ -5,6 +5,7 @@ export interface TagRepository {
   get(id: string): Tag | undefined;
   create(name: string, color?: string): Tag;
   update(id: string, patch: Partial<Pick<Tag, "name" | "color" | "sortOrder">>): Tag;
+  reorder(orderedIds: string[]): void;
   remove(id: string): void;
 }
 

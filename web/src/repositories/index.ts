@@ -91,6 +91,45 @@ export const tagRepository: TagRepository = {
     return updated;
   },
 
+  reorder(orderedIds) {
+    const auth = useAuthStore();
+    if (!auth.isAuthenticated) {
+      localTagRepository.reorder(orderedIds);
+      return;
+    }
+
+    const previous = getCloudTags();
+    if (orderedIds.length !== previous.length) {
+      throw new Error("Tag reorder list length mismatch");
+    }
+    const orderMap = new Map(orderedIds.map((id, index) => [id, index]));
+    if (orderMap.size !== previous.length || previous.some((tag) => !orderMap.has(tag.id))) {
+      throw new Error("Tag reorder list mismatch");
+    }
+
+    const updated = previous.map((tag) => ({
+      ...tag,
+      sortOrder: orderMap.get(tag.id)!,
+    }));
+    for (const tag of updated) {
+      replaceCloudTag(tag);
+    }
+
+    const changed = updated.filter((tag) => {
+      const current = previous.find((t) => t.id === tag.id);
+      return current && current.sortOrder !== tag.sortOrder;
+    });
+    if (changed.length === 0) return;
+
+    void Promise.all(
+      changed.map((tag) => updateRemoteTag(tokenOrThrow(), tag.id, { sortOrder: tag.sortOrder })),
+    ).catch(() => {
+      for (const tag of previous) {
+        replaceCloudTag(tag);
+      }
+    });
+  },
+
   remove(id) {
     const auth = useAuthStore();
     if (!auth.isAuthenticated) {
